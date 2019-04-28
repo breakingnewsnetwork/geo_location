@@ -1,0 +1,22 @@
+PODS:
+  - Flutter (1.0.0)
+  - geo_location (0.0.1):
+    - Flutter
+
+DEPENDENCIES:
+  - Flutter (from `.symlinks/flutter/ios`)
+  - geo_location (from `.symlinks/plugins/geo_location/ios`)
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: ".symlinks/flutter/ios"
+  geo_location:
+    :path: ".symlinks/plugins/geo_location/ios"
+
+SPEC CHECKSUMS:
+  Flutter: 9d0fac939486c9aba2809b7982dfdbb47a7b0296
+  geo_location: 7b8e62847800e55932f7835e88bb473cf1797857
+
+PODFILE CHECKSUM: ebd43b443038e611b86ede96e613bd6033c49497
+
+COCOAPODS: 1.5.3

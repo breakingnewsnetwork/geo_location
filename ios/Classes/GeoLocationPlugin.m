@@ -1,5 +1,5 @@
 #import "GeoLocationPlugin.h"
-#import <geo_location/geo_location-Swift.h>
+#import <CoreLocation/CoreLocation.h>
 
 @implementation GeoLocationPlugin {
   CLLocationManager *_locationManager;
@@ -17,7 +17,7 @@ static const NSString *kEventType = @"event_type";
 static const int kEnterEvent = 1;
 static const int kExitEvent = 2;
 static const NSString *kCallbackMapping = @"geofence_region_callback_mapping";
-static GeofencingPlugin *instance = nil;
+static GeoLocationPlugin *instance = nil;
 static FlutterPluginRegistrantCallback registerPlugins = nil;
 static BOOL initialized = NO;
 
@@ -26,7 +26,7 @@ static BOOL initialized = NO;
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar {
   @synchronized(self) {
     if (instance == nil) {
-      instance = [[GeofencingPlugin alloc] init:registrar];
+      instance = [[GeoLocationPlugin alloc] init:registrar];
       [registrar addApplicationDelegate:instance];
     }
   }
@@ -38,12 +38,11 @@ static BOOL initialized = NO;
 
 - (void)handleMethodCall:(FlutterMethodCall *)call result:(FlutterResult)result {
   NSArray *arguments = call.arguments;
-  if ([@"GeofencingPlugin.initializeService" isEqualToString:call.method]) {
-    NSAssert(arguments.count == 1,
-             @"Invalid argument count for 'GeofencingPlugin.initializeService'");
-    [self startGeofencingService:[arguments[0] longValue]];
+    if ([@"LocationUpdatesService.initializeService" isEqualToString:call.method]) {
+    NSAssert(arguments.count == 1, @"Invalid argument count for 'LocationUpdatesService.initializeService'");
+    [self startGeoLocationService:[arguments[0] longValue]];
     result(@(YES));
-  } else if ([@"GeofencingService.initialized" isEqualToString:call.method]) {
+  } else if ([@"LocationUpdatesService.initialized" isEqualToString:call.method]) {
     @synchronized(self) {
       initialized = YES;
         // Send the geofence events that occurred while the background
@@ -57,11 +56,11 @@ static BOOL initialized = NO;
         }
     }
     result(nil);
-  } else if ([@"GeofencingPlugin.registerGeofence" isEqualToString:call.method]) {
-    [self registerGeofence:arguments];
+  } else if ([@"LocationUpdatesService.registerGeoLocation" isEqualToString:call.method]) {
+    [self registerGeoLocation:arguments];
     result(@(YES));
-  } else if ([@"GeofencingPlugin.removeGeofence" isEqualToString:call.method]) {
-    result(@([self removeGeofence:arguments]));
+  } else if ([@"LocationUpdatesService.removeGeoLocation" isEqualToString:call.method]) {
+    result(@([self removeGeoLocation:arguments]));
   } else {
     result(FlutterMethodNotImplemented);
   }
@@ -72,7 +71,7 @@ static BOOL initialized = NO;
   // Check to see if we're being launched due to a location event.
   if (launchOptions[UIApplicationLaunchOptionsLocationKey] != nil) {
     // Restart the headless service.
-    [self startGeofencingService:[self getCallbackDispatcherHandle]];
+    [self startGeoLocationService:[self getCallbackDispatcherHandle]];
   }
 
   // Note: if we return NO, this vetos the launch of the application.
@@ -134,22 +133,26 @@ static BOOL initialized = NO;
   _locationManager = [[CLLocationManager alloc] init];
   [_locationManager setDelegate:self];
   [_locationManager requestAlwaysAuthorization];
-  _locationManager.allowsBackgroundLocationUpdates = YES;
+    if (@available(iOS 9.0, *)) {
+        _locationManager.allowsBackgroundLocationUpdates = YES;
+    } else {
+        // Fallback on earlier versions
+    }
 
   _headlessRunner = [[FlutterEngine alloc] initWithName:@"GeofencingIsolate" project:nil allowHeadlessExecution:YES];
   _registrar = registrar;
 
-  _mainChannel = [FlutterMethodChannel methodChannelWithName:@"plugins.flutter.io/geofencing_plugin"
+    _mainChannel = [FlutterMethodChannel methodChannelWithName:@"plugins.flutter.io/geolocation_plugin"
                                              binaryMessenger:[registrar messenger]];
   [registrar addMethodCallDelegate:self channel:_mainChannel];
 
   _callbackChannel =
-      [FlutterMethodChannel methodChannelWithName:@"plugins.flutter.io/geofencing_plugin_background"
+    [FlutterMethodChannel methodChannelWithName:@"plugins.flutter.io/geolocation_plugin_background"
                                   binaryMessenger:_headlessRunner];
   return self;
 }
 
-- (void)startGeofencingService:(int64_t)handle {
+- (void)startGeoLocationService:(int64_t)handle {
   [self setCallbackDispatcherHandle:handle];
   FlutterCallbackInformation *info = [FlutterCallbackCache lookupCallbackInformation:handle];
   NSAssert(info != nil, @"failed to find callback");
@@ -166,7 +169,7 @@ static BOOL initialized = NO;
   [_registrar addMethodCallDelegate:self channel:_callbackChannel];
 }
 
-- (void)registerGeofence:(NSArray *)arguments {
+- (void)registerGeoLocation:(NSArray *)arguments {
   int64_t callbackHandle = [arguments[0] longLongValue];
   NSString *identifier = arguments[1];
   double latitude = [arguments[2] doubleValue];
@@ -185,7 +188,7 @@ static BOOL initialized = NO;
   [self->_locationManager startMonitoringForRegion:region];
 }
 
-- (BOOL)removeGeofence:(NSArray *)arguments {
+- (BOOL)removeGeoLocation:(NSArray *)arguments {
   NSString *identifier = arguments[0];
   for (CLRegion *region in [self->_locationManager monitoredRegions]) {
     if ([region.identifier isEqual:identifier]) {
