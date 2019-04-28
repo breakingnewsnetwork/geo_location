@@ -40,7 +40,7 @@ static BOOL initialized = NO;
   NSArray *arguments = call.arguments;
     if ([@"LocationUpdatesService.initializeService" isEqualToString:call.method]) {
     NSAssert(arguments.count == 1, @"Invalid argument count for 'LocationUpdatesService.initializeService'");
-    [self startGeofencingService:[arguments[0] longValue]];
+    [self startGeoLocationService:[arguments[0] longValue]];
     result(@(YES));
   } else if ([@"LocationUpdatesService.initialized" isEqualToString:call.method]) {
     @synchronized(self) {
@@ -71,7 +71,7 @@ static BOOL initialized = NO;
   // Check to see if we're being launched due to a location event.
   if (launchOptions[UIApplicationLaunchOptionsLocationKey] != nil) {
     // Restart the headless service.
-    [self startGeofencingService:[self getCallbackDispatcherHandle]];
+    [self startGeoLocationService:[self getCallbackDispatcherHandle]];
   }
 
   // Note: if we return NO, this vetos the launch of the application.
@@ -152,7 +152,7 @@ static BOOL initialized = NO;
   return self;
 }
 
-- (void)startGeofencingService:(int64_t)handle {
+- (void)startGeoLocationService:(int64_t)handle {
   [self setCallbackDispatcherHandle:handle];
   FlutterCallbackInformation *info = [FlutterCallbackCache lookupCallbackInformation:handle];
   NSAssert(info != nil, @"failed to find callback");

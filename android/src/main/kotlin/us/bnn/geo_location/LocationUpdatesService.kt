@@ -407,7 +407,7 @@ class LocationUpdatesService : Service(), MethodChannel.MethodCallHandler {
          * The name of the channel for notifications.
          */
         private var CALLBACK_HANDLE = 0L
-        private const val CHANNEL_ID = "channel_01"
+        private const val CHANNEL_ID = "$PACKAGE_NAME.background_channel"
 
         internal const val ACTION_BROADCAST = "$PACKAGE_NAME.broadcast"
 
