@@ -20,11 +20,13 @@ void callbackDispatcher() {
     final Function callback = PluginUtilities.getCallbackFromHandle(CallbackHandle.fromRawHandle(args[0]));
     assert(callback != null);
     final List<double> locationList = <double>[];
+    final List<String> infoList = <String>[];
     // 0.0 becomes 0 somewhere during the method call, resulting in wrong
     // runtime type (int instead of double). This is a simple way to get
     // around casting in another complicated manner.
     args[1].forEach((dynamic e) => locationList.add(double.parse(e.toString())));
-    final Location triggeringLocation = locationFromList(locationList);
+    args[2].forEach((dynamic e) => infoList.add(e.toString()));
+    final UserLocation triggeringLocation = locationFromList(locationList, infoList);
     callback(triggeringLocation);
 
   });

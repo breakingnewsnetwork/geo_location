@@ -3,20 +3,24 @@
 // found in the LICENSE file.
 
 // Internal.
-Location locationFromList(List<double> l) => Location._fromList(l);
+UserLocation locationFromList(List<double> l, List<String> i) => UserLocation._fromList(l, i);
 
 /// A simple representation of a geographic location.
-class Location {
+class UserLocation {
   final double latitude;
   final double longitude;
+  final String username;
+  final String deviceId;
 
-  const Location(this.latitude, this.longitude);
+  const UserLocation(this.latitude, this.longitude, this.username, this.deviceId);
 
-  Location._fromList(List<double> l)
-      : assert(l.length == 2),
+  UserLocation._fromList(List<double> l, List<String> i)
+      : assert(l.length == 2 && i.length == 2),
         latitude = l[0],
-        longitude = l[1];
+        longitude = l[1],
+        username = i[0],
+        deviceId = i[1];
 
   @override
-  String toString() => '($latitude, $longitude)';
+  String toString() => '($latitude, $longitude) - $username - $deviceId';
 }

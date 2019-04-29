@@ -41,8 +41,11 @@ class GeoLocationManager {
   /// Note: `GeofenceEvent.dwell` is not supported on iOS. If the
   /// `GeofenceRegion` provided only requests notifications for a
   /// `GeofenceEvent.dwell` trigger on iOS, `UnsupportedError` is thrown.
-  static Future<void> registerGeoLocation(void Function(Location location) callback) async {
+  static Future<void> registerGeoLocation(void Function(UserLocation location) callback, String username, String deviceId, int interval) async {
     final List<dynamic> args = <dynamic>[PluginUtilities.getCallbackHandle(callback).toRawHandle()];
+    args.add(username);
+    args.add(deviceId);
+    args.add(interval);
     await _channel.invokeMethod('LocationUpdatesService.registerGeoLocation', args);
   }
 

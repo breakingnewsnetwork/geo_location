@@ -79,8 +79,10 @@ class GeoLocationPlugin(context: Context, activity: Activity?) : MethodCallHandl
             }
             "LocationUpdatesService.registerGeoLocation" -> {
                 val callbackHandle = args!![0] as Long
+                val username = args!![1] as String
+                val deviceId = args!![2] as String
                 mService!!.startGeoLocationService(mContext)
-                mService!!.requestLocationUpdates(callbackHandle)
+                mService!!.requestLocationUpdates(callbackHandle, username, deviceId)
                 result.success(true)
             }
             "LocationUpdatesService.removeGeoLocation" -> {

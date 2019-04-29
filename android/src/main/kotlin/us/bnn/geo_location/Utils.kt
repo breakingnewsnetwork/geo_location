@@ -10,6 +10,8 @@ import java.util.Date
 internal object Utils {
 
     private const val KEY_REQUESTING_LOCATION_UPDATES = "requesting_locaction_updates"
+    private const val KEY_LOCATION_UPDATES_USERNAME = "requesting_locaction_updates_username"
+    private const val KEY_LOCATION_UPDATES_DEVICE_ID = "requesting_locaction_updates_device_id"
 
     /**
      * Returns true if requesting location updates, otherwise returns false.
@@ -29,6 +31,38 @@ internal object Utils {
         PreferenceManager.getDefaultSharedPreferences(context)
                 .edit()
                 .putBoolean(KEY_REQUESTING_LOCATION_UPDATES, requestingLocationUpdates)
+                .apply()
+    }
+
+    fun getUsername(context: Context): String? {
+        return PreferenceManager.getDefaultSharedPreferences(context)
+                .getString(KEY_LOCATION_UPDATES_USERNAME, "")
+    }
+
+    /**
+     * Stores the location updates state in SharedPreferences.
+     * @param requestingLocationUpdates The location updates state.
+     */
+    fun setUsername(context: Context, username: String) {
+        PreferenceManager.getDefaultSharedPreferences(context)
+                .edit()
+                .putString(KEY_LOCATION_UPDATES_USERNAME, username)
+                .apply()
+    }
+
+    fun getDeviceId(context: Context): String? {
+        return PreferenceManager.getDefaultSharedPreferences(context)
+                .getString(KEY_LOCATION_UPDATES_DEVICE_ID, "")
+    }
+
+    /**
+     * Stores the location updates state in SharedPreferences.
+     * @param requestingLocationUpdates The location updates state.
+     */
+    fun setDeviceId(context: Context, deviceId: String) {
+        PreferenceManager.getDefaultSharedPreferences(context)
+                .edit()
+                .putString(KEY_LOCATION_UPDATES_DEVICE_ID, deviceId)
                 .apply()
     }
 

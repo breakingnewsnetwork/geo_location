@@ -217,10 +217,12 @@ class LocationUpdatesService : Service(), MethodChannel.MethodCallHandler {
      * Makes a request for location updates. Note that in this sample we merely log the
      * [SecurityException].
      */
-    fun requestLocationUpdates(callbackHandle: Long) {
+    fun requestLocationUpdates(callbackHandle: Long, username: String, deviceId: String) {
         Log.i(TAG, "Requesting location updates $callbackHandle")
         CALLBACK_HANDLE = callbackHandle
         Utils.setRequestingLocationUpdates(this, true)
+        Utils.setUsername(this, username)
+        Utils.setDeviceId(this, deviceId)
         startService(Intent(applicationContext, LocationUpdatesService::class.java))
         try {
             mFusedLocationClient!!.requestLocationUpdates(mLocationRequest,
@@ -229,7 +231,6 @@ class LocationUpdatesService : Service(), MethodChannel.MethodCallHandler {
             Utils.setRequestingLocationUpdates(this, false)
             Log.e(TAG, "Lost location permission. Could not request updates. $unlikely")
         }
-
     }
 
     /**
@@ -277,8 +278,11 @@ class LocationUpdatesService : Service(), MethodChannel.MethodCallHandler {
         androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(intent)
 
         //val callbackHandle = intent.getLongExtra(CALLBACK_HANDLE_KEY, 0)
+        val username = Utils.getUsername(this)
+        val deviceId = Utils.getDeviceId(this)
         val locationList = listOf(location.latitude, location.longitude)
-        val geoLocationUpdateList = listOf(CALLBACK_HANDLE, locationList)
+        val infoList = listOf(username, deviceId)
+        val geoLocationUpdateList = listOf(CALLBACK_HANDLE, locationList, infoList)
 
         synchronized(sServiceStarted) {
             if (!sServiceStarted.get()) {

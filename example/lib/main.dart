@@ -36,7 +36,7 @@ class _MyAppState extends State<MyApp> {
     initPlatformState();
   }
 
-  static void callback(Location l) async {
+  static void callback(UserLocation l) async {
     print('Location $l');
     final SendPort send = IsolateNameServer.lookupPortByName('geolocation_send_port');
     send?.send(l);
@@ -84,7 +84,7 @@ class _MyAppState extends State<MyApp> {
                       if (radius == null) {
                         setState(() => radius = 0.0);
                       }
-                      GeoLocationManager.registerGeoLocation(callback);
+                      GeoLocationManager.registerGeoLocation(callback, 'test_user', 'test_device_id', 20000);
                     },
                   ),
                 ),
