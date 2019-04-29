@@ -92,17 +92,16 @@ class LocationUpdatesService : Service(), MethodChannel.MethodCallHandler {
         intent.putExtra(EXTRA_STARTED_FROM_NOTIFICATION, true)
 
         // The PendingIntent to launch activity.
+        val c = Class.forName(MAIN_ACTIVITY_CLASS)
         val activityPendingIntent = PendingIntent.getActivity(this, 0,
-                Intent(this, GeoLocationPlugin::class.java), 0)
+                Intent(this, c), 0)
         val imageId = resources.getIdentifier("ic_launcher", "mipmap", packageName)
 
-        val builder = NotificationCompat.Builder(this)
-                .addAction(imageId, getString(R.string.launch_activity),
-                        activityPendingIntent)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+                .addAction(imageId, getString(R.string.launch_activity), activityPendingIntent)
                 .setContentText(text)
                 .setContentTitle(Utils.getLocationTitle(this))
                 .setOngoing(true)
-                .setPriority(Notification.PRIORITY_LOW)
                 .setSmallIcon(imageId)
                 .setTicker(text)
                 .setWhen(System.currentTimeMillis())
@@ -110,6 +109,7 @@ class LocationUpdatesService : Service(), MethodChannel.MethodCallHandler {
         // Set the Channel ID for Android O.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             builder.setChannelId(CHANNEL_ID) // Channel ID
+            builder.priority = NotificationManager.IMPORTANCE_LOW
         }
 
         return builder.build()
@@ -406,6 +406,7 @@ class LocationUpdatesService : Service(), MethodChannel.MethodCallHandler {
         /**
          * The name of the channel for notifications.
          */
+        var MAIN_ACTIVITY_CLASS = ""
         private var CALLBACK_HANDLE = 0L
         private const val CHANNEL_ID = "$PACKAGE_NAME.background_channel"
 

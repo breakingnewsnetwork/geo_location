@@ -17,6 +17,7 @@ class MainActivity: FlutterActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     GeneratedPluginRegistrant.registerWith(this)
+    LocationUpdatesService.MAIN_ACTIVITY_CLASS = "us.bnn.geo_location_example.MainActivity"
   }
 
   private val TAG = "MainActivity"
