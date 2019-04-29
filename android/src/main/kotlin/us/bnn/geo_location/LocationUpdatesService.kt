@@ -95,7 +95,7 @@ class LocationUpdatesService : Service(), MethodChannel.MethodCallHandler {
         val c = Class.forName(MAIN_ACTIVITY_CLASS)
         val activityPendingIntent = PendingIntent.getActivity(this, 0,
                 Intent(this, c), 0)
-        val imageId = resources.getIdentifier("ic_launcher", "mipmap", packageName)
+        val imageId = resources.getIdentifier("ic_stat_name", "drawable", packageName)
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
                 .addAction(imageId, getString(R.string.launch_activity), activityPendingIntent)
@@ -143,7 +143,7 @@ class LocationUpdatesService : Service(), MethodChannel.MethodCallHandler {
 
         // Android O requires a Notification Channel.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = getString(R.string.launch_activity)
+            val name = getString(R.string.location_updates_label)
             // Create the channel for the notification
             val mChannel = NotificationChannel(CHANNEL_ID, name, NotificationManager.IMPORTANCE_DEFAULT)
 
