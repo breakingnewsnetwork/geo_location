@@ -101,7 +101,7 @@ class LocationUpdatesService : Service(), MethodChannel.MethodCallHandler {
                 .addAction(imageId, getString(R.string.launch_activity), activityPendingIntent)
                 .setContentText(text)
                 .setContentTitle(Utils.getLocationTitle(this))
-                .setOngoing(true)
+                .setOngoing(false)
                 .setSmallIcon(imageId)
                 .setTicker(text)
                 .setWhen(System.currentTimeMillis())
@@ -133,7 +133,7 @@ class LocationUpdatesService : Service(), MethodChannel.MethodCallHandler {
 
         startGeoLocationService(this)
 
-        createLocationRequest()
+        //createLocationRequest()
         getLastLocation()
 
         val handlerThread = HandlerThread(TAG)
@@ -151,7 +151,12 @@ class LocationUpdatesService : Service(), MethodChannel.MethodCallHandler {
             mNotificationManager!!.createNotificationChannel(mChannel)
         }
 
-
+        if (Utils.requestingLocationUpdates(this)) {
+            val callbackHandle = Utils.getCallbackHandler(this)
+            val username = Utils.getUsername(this).toString()
+            val deviceId = Utils.getDeviceId(this).toString()
+            requestLocationUpdates(callbackHandle, username, deviceId)
+        }
     }
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
@@ -219,12 +224,13 @@ class LocationUpdatesService : Service(), MethodChannel.MethodCallHandler {
      */
     fun requestLocationUpdates(callbackHandle: Long, username: String, deviceId: String) {
         Log.i(TAG, "Requesting location updates $callbackHandle")
-        CALLBACK_HANDLE = callbackHandle
         Utils.setRequestingLocationUpdates(this, true)
         Utils.setUsername(this, username)
         Utils.setDeviceId(this, deviceId)
+        Utils.setCallbackHandler(this, callbackHandle)
         startService(Intent(applicationContext, LocationUpdatesService::class.java))
         try {
+            createLocationRequest();
             mFusedLocationClient!!.requestLocationUpdates(mLocationRequest,
                     mLocationCallback!!, Looper.myLooper())
         } catch (unlikely: SecurityException) {
@@ -277,12 +283,12 @@ class LocationUpdatesService : Service(), MethodChannel.MethodCallHandler {
         intent.putExtra(EXTRA_LOCATION, location)
         androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(intent)
 
-        //val callbackHandle = intent.getLongExtra(CALLBACK_HANDLE_KEY, 0)
+        val callbackHandle = Utils.getCallbackHandler(this)
         val username = Utils.getUsername(this)
         val deviceId = Utils.getDeviceId(this)
         val locationList = listOf(location.latitude, location.longitude)
         val infoList = listOf(username, deviceId)
-        val geoLocationUpdateList = listOf(CALLBACK_HANDLE, locationList, infoList)
+        val geoLocationUpdateList = listOf(callbackHandle, locationList, infoList)
 
         synchronized(sServiceStarted) {
             if (!sServiceStarted.get()) {
@@ -305,9 +311,10 @@ class LocationUpdatesService : Service(), MethodChannel.MethodCallHandler {
      */
     private fun createLocationRequest() {
         mLocationRequest = LocationRequest()
-        mLocationRequest!!.interval = UPDATE_INTERVAL_IN_MILLISECONDS
+        mLocationRequest!!.interval = Utils.getLocationInterval(this) // UPDATE_INTERVAL_IN_MILLISECONDS
         mLocationRequest!!.fastestInterval = FASTEST_UPDATE_INTERVAL_IN_MILLISECONDS
         mLocationRequest!!.priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+        mLocationRequest!!.smallestDisplacement = 500.0F
     }
 
     /**
@@ -406,12 +413,10 @@ class LocationUpdatesService : Service(), MethodChannel.MethodCallHandler {
         private const val PACKAGE_NAME = "us.bnn.geo_location"
 
         private val TAG = LocationUpdatesService::class.java.simpleName
-        const val CALLBACK_HANDLE_KEY = "callback_handle"
         /**
          * The name of the channel for notifications.
          */
         var MAIN_ACTIVITY_CLASS = ""
-        private var CALLBACK_HANDLE = 0L
         private const val CHANNEL_ID = "$PACKAGE_NAME.background_channel"
 
         internal const val ACTION_BROADCAST = "$PACKAGE_NAME.broadcast"
@@ -477,7 +482,6 @@ class LocationUpdatesService : Service(), MethodChannel.MethodCallHandler {
             val callbackHandle = args!![0] as Long
 
             Log.d(TAG, "Initializing GeoLocationService $callbackHandle")
-            CALLBACK_HANDLE = callbackHandle
 
             context.getSharedPreferences(SHARED_PREFERENCES_KEY, Context.MODE_PRIVATE)
                     .edit()

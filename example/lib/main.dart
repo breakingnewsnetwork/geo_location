@@ -84,7 +84,7 @@ class _MyAppState extends State<MyApp> {
                       if (radius == null) {
                         setState(() => radius = 0.0);
                       }
-                      GeoLocationManager.registerGeoLocation(callback, 'test_user', 'test_device_id', 20000);
+                      GeoLocationManager.registerGeoLocation(callback, 'test_user', 'test_device_id', 60000);
                     },
                   ),
                 ),

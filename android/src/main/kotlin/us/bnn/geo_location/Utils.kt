@@ -9,10 +9,11 @@ import java.util.Date
 
 internal object Utils {
 
-    private const val KEY_REQUESTING_LOCATION_UPDATES = "requesting_locaction_updates"
-    private const val KEY_LOCATION_UPDATES_USERNAME = "requesting_locaction_updates_username"
-    private const val KEY_LOCATION_UPDATES_DEVICE_ID = "requesting_locaction_updates_device_id"
-
+    private const val KEY_REQUESTING_LOCATION_UPDATES = "requesting_location_updates"
+    private const val KEY_LOCATION_UPDATES_USERNAME = "requesting_location_updates_username"
+    private const val KEY_LOCATION_UPDATES_DEVICE_ID = "requesting_location_updates_device_id"
+    private const val KEY_LOCATION_UPDATES_INTERVAL = "requesting_location_updates_interval"
+    private const val CALLBACK_HANDLE_KEY = "callback_handle"
     /**
      * Returns true if requesting location updates, otherwise returns false.
      *
@@ -63,6 +64,38 @@ internal object Utils {
         PreferenceManager.getDefaultSharedPreferences(context)
                 .edit()
                 .putString(KEY_LOCATION_UPDATES_DEVICE_ID, deviceId)
+                .apply()
+    }
+
+    fun getCallbackHandler(context: Context): Long {
+        return PreferenceManager.getDefaultSharedPreferences(context)
+                .getLong(CALLBACK_HANDLE_KEY, 0L)
+    }
+
+    /**
+     * Stores the location updates state in SharedPreferences.
+     * @param requestingLocationUpdates The location updates state.
+     */
+    fun setCallbackHandler(context: Context, callbackHandler: Long) {
+        PreferenceManager.getDefaultSharedPreferences(context)
+                .edit()
+                .putLong(CALLBACK_HANDLE_KEY, callbackHandler)
+                .apply()
+    }
+
+    fun getLocationInterval(context: Context): Long {
+        return PreferenceManager.getDefaultSharedPreferences(context)
+                .getLong(KEY_LOCATION_UPDATES_INTERVAL, 60000)
+    }
+
+    /**
+     * Stores the location updates state in SharedPreferences.
+     * @param requestingLocationUpdates The location updates state.
+     */
+    fun setLocationInterval(context: Context, interval: Long) {
+        PreferenceManager.getDefaultSharedPreferences(context)
+                .edit()
+                .putLong(KEY_LOCATION_UPDATES_INTERVAL, interval)
                 .apply()
     }
 
