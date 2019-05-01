@@ -2,21 +2,17 @@
 #import <CoreLocation/CoreLocation.h>
 
 @implementation GeoLocationPlugin {
-  CLLocationManager *_locationManager;
-  FlutterEngine *_headlessRunner;
-  FlutterMethodChannel *_callbackChannel;
-  FlutterMethodChannel *_mainChannel;
-  NSObject<FlutterPluginRegistrar> *_registrar;
-  NSUserDefaults *_persistentState;
-  NSMutableArray *_eventQueue;
-  int64_t _onLocationUpdateHandle;
+    CLLocationManager *_locationManager;
+    FlutterEngine *_headlessRunner;
+    FlutterMethodChannel *_callbackChannel;
+    FlutterMethodChannel *_mainChannel;
+    NSObject<FlutterPluginRegistrar> *_registrar;
+    NSUserDefaults *_persistentState;
+    NSMutableArray *_eventQueue;
+    int64_t _onLocationUpdateHandle;
 }
 
-static const NSString *kRegionKey = @"region";
-static const NSString *kEventType = @"event_type";
-static const int kEnterEvent = 1;
-static const int kExitEvent = 2;
-static const NSString *kCallbackMapping = @"geofence_region_callback_mapping";
+static const NSString *kLocationKey = @"location";
 static GeoLocationPlugin *instance = nil;
 static FlutterPluginRegistrantCallback registerPlugins = nil;
 static BOOL initialized = NO;
@@ -24,230 +20,208 @@ static BOOL initialized = NO;
 #pragma mark FlutterPlugin Methods
 
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar {
-  @synchronized(self) {
-    if (instance == nil) {
-      instance = [[GeoLocationPlugin alloc] init:registrar];
-      [registrar addApplicationDelegate:instance];
+    @synchronized(self) {
+        NSLog(@"GeoLocationPlugin - registerWithRegistrar");
+        if (instance == nil) {
+            instance = [[GeoLocationPlugin alloc] init:registrar];
+            [registrar addApplicationDelegate:instance];
+        }
     }
-  }
 }
 
 + (void)setPluginRegistrantCallback:(FlutterPluginRegistrantCallback)callback {
-  registerPlugins = callback;
+    NSLog(@"GeoLocationPlugin - setPluginRegistrantCallback");
+    registerPlugins = callback;
 }
 
 - (void)handleMethodCall:(FlutterMethodCall *)call result:(FlutterResult)result {
-  NSArray *arguments = call.arguments;
+    NSLog(@"GeoLocationPlugin - handleMethodCall: %@\n", call.method);
+    NSArray *arguments = call.arguments;
     if ([@"LocationUpdatesService.initializeService" isEqualToString:call.method]) {
-    NSAssert(arguments.count == 1, @"Invalid argument count for 'LocationUpdatesService.initializeService'");
-    [self startGeoLocationService:[arguments[0] longValue]];
-    result(@(YES));
-  } else if ([@"LocationUpdatesService.initialized" isEqualToString:call.method]) {
-    @synchronized(self) {
-      initialized = YES;
-        // Send the geofence events that occurred while the background
-        // isolate was initializing.
-        while ([_eventQueue count] > 0) {
-            NSDictionary* event = _eventQueue[0];
-            [_eventQueue removeObjectAtIndex:0];
-            CLRegion* region = [event objectForKey:kRegionKey];
-            int type = [[event objectForKey:kEventType] intValue];
-            [self sendLocationEvent:region eventType: type];
+        NSAssert(arguments.count == 1, @"Invalid argument count for 'LocationUpdatesService.initializeService'");
+        [self startGeoLocationService:[arguments[0] longValue]];
+        result(@(YES));
+    } else if ([@"LocationUpdatesService.initialized" isEqualToString:call.method]) {
+        @synchronized(self) {
+            initialized = YES;
+            // Send the geolocation events that occurred while the background isolate was initializing.
+            while ([_eventQueue count] > 0) {
+                NSDictionary* locationDic = _eventQueue[0];
+                [_eventQueue removeObjectAtIndex:0];
+                CLLocation* location = [locationDic objectForKey:kLocationKey];
+                [self onLocationEvent:location];
+            }
         }
+        result(nil);
+    } else if ([@"LocationUpdatesService.registerGeoLocation" isEqualToString:call.method]) {
+        [self registerGeoLocation:arguments];
+        result(@(YES));
+    } else if ([@"LocationUpdatesService.removeGeoLocation" isEqualToString:call.method]) {
+        result(@([self removeGeoLocation:arguments]));
+    } else {
+        result(FlutterMethodNotImplemented);
     }
-    result(nil);
-  } else if ([@"LocationUpdatesService.registerGeoLocation" isEqualToString:call.method]) {
-    [self registerGeoLocation:arguments];
-    result(@(YES));
-  } else if ([@"LocationUpdatesService.removeGeoLocation" isEqualToString:call.method]) {
-    result(@([self removeGeoLocation:arguments]));
-  } else {
-    result(FlutterMethodNotImplemented);
-  }
 }
 
 - (BOOL)application:(UIApplication *)application
-    didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-  // Check to see if we're being launched due to a location event.
-  if (launchOptions[UIApplicationLaunchOptionsLocationKey] != nil) {
-    // Restart the headless service.
-    [self startGeoLocationService:[self getCallbackDispatcherHandle]];
-  }
-
-  // Note: if we return NO, this vetos the launch of the application.
-  return YES;
+didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+    NSLog(@"GeoLocationPlugin - didFinishLaunchingWithOptions");
+    // Check to see if we're being launched due to a location event.
+    if (launchOptions[UIApplicationLaunchOptionsLocationKey] != nil) {
+        // Restart the headless service.
+        NSLog(@"GeoLocationPlugin - didFinishLaunchingWithOptions - Restart the headless service.");
+        [self startGeoLocationService:[self getCallbackDispatcherHandle]];
+        [self->_locationManager startMonitoringSignificantLocationChanges];
+    }
+    
+    // Note: if we return NO, this vetos the launch of the application.
+    return YES;
 }
 
 #pragma mark LocationManagerDelegate Methods
-- (void)locationManager:(CLLocationManager *)manager didEnterRegion:(CLRegion *)region {
-  @synchronized(self) {
-    if (initialized) {
-      [self sendLocationEvent:region eventType:kEnterEvent];
-    } else {
-      NSDictionary *dict = @{
-        kRegionKey: region,
-        kEventType: @(kEnterEvent)
-      };
-      [_eventQueue addObject:dict];
-    }
-  }
-}
-
-- (void)locationManager:(CLLocationManager *)manager didExitRegion:(CLRegion *)region {
-  @synchronized(self) {
-    if (initialized) {
-      [self sendLocationEvent:region eventType:kExitEvent];
-    } else {
-      NSDictionary *dict = @{
-        kRegionKey: region,
-        kEventType: @(kExitEvent)
-      };
-      [_eventQueue addObject:dict];
-    }
-  }
-}
-
 - (void)locationManager:(CLLocationManager *)manager
-    monitoringDidFailForRegion:(CLRegion *)region
-                     withError:(NSError *)error {
+     didUpdateLocations:(NSArray<CLLocation *> *)locations {
+    NSLog(@"GeoLocationPlugin - didUpdateLocations");
+    CLLocation *location = locations.lastObject;
+    if(initialized) {
+        [self onLocationEvent:location];
+    } else {
+        NSDictionary *dict = @{kLocationKey: location};
+        [_eventQueue addObject:dict];
+    }
 }
 
-#pragma mark GeofencingPlugin Methods
+#pragma mark GeoLocationPlugin Methods
 
-- (void)sendLocationEvent:(CLRegion *)region eventType:(int)event {
-  NSAssert([region isKindOfClass:[CLCircularRegion class]], @"region must be CLCircularRegion");
-  CLLocationCoordinate2D center = region.center;
-  int64_t handle = [self getCallbackHandleForRegionId:region.identifier];
-  [_callbackChannel
-      invokeMethod:@""
-         arguments:@[
-           @(handle), @[ region.identifier ], @[ @(center.latitude), @(center.longitude) ], @(event)
-         ]];
+- (void)onLocationEvent:(CLLocation *)location {
+    NSLog(@"GeoLocationPlugin - onLocationEvent");
+    int64_t handle = [self getLocationCallbackHandle];
+    NSString* username = [self getGeoUsername];
+    NSString* deviceId = [self getGeoDeviceId];
+    [_callbackChannel invokeMethod:@""
+     arguments:@[@(handle),
+                 @[ @(location.coordinate.latitude), @(location.coordinate.longitude) ],
+                 @[ username, deviceId]
+                 ]];
 }
 
 - (instancetype)init:(NSObject<FlutterPluginRegistrar> *)registrar {
-  self = [super init];
-  NSAssert(self, @"super init cannot be nil");
-  _persistentState = [NSUserDefaults standardUserDefaults];
-  _eventQueue = [[NSMutableArray alloc] init];
-  _locationManager = [[CLLocationManager alloc] init];
-  [_locationManager setDelegate:self];
-  [_locationManager requestAlwaysAuthorization];
+    self = [super init];
+    NSLog(@"GeoLocationPlugin - init");
+    NSAssert(self, @"super init cannot be nil");
+    _persistentState = [NSUserDefaults standardUserDefaults];
+    _eventQueue = [[NSMutableArray alloc] init];
+    _locationManager = [[CLLocationManager alloc] init];
+    [_locationManager setDelegate:self];
+    [_locationManager requestAlwaysAuthorization];
     if (@available(iOS 9.0, *)) {
         _locationManager.allowsBackgroundLocationUpdates = YES;
     } else {
         // Fallback on earlier versions
     }
-
-  _headlessRunner = [[FlutterEngine alloc] initWithName:@"GeofencingIsolate" project:nil allowHeadlessExecution:YES];
-  _registrar = registrar;
-
+    
+    _headlessRunner = [[FlutterEngine alloc] initWithName:@"GeoLocationIsolate" project:nil allowHeadlessExecution:YES];
+    _registrar = registrar;
+    
     _mainChannel = [FlutterMethodChannel methodChannelWithName:@"plugins.flutter.io/geolocation_plugin"
-                                             binaryMessenger:[registrar messenger]];
-  [registrar addMethodCallDelegate:self channel:_mainChannel];
-
-  _callbackChannel =
+                                               binaryMessenger:[registrar messenger]];
+    [registrar addMethodCallDelegate:self channel:_mainChannel];
+    
+    _callbackChannel =
     [FlutterMethodChannel methodChannelWithName:@"plugins.flutter.io/geolocation_plugin_background"
-                                  binaryMessenger:_headlessRunner];
-  return self;
+                                binaryMessenger:_headlessRunner];
+    return self;
 }
 
 - (void)startGeoLocationService:(int64_t)handle {
-  [self setCallbackDispatcherHandle:handle];
-  FlutterCallbackInformation *info = [FlutterCallbackCache lookupCallbackInformation:handle];
-  NSAssert(info != nil, @"failed to find callback");
-  NSString *entrypoint = info.callbackName;
-  NSString *uri = info.callbackLibraryPath;
-  [_headlessRunner runWithEntrypoint:entrypoint libraryURI:uri];
-  NSAssert(registerPlugins != nil, @"failed to set registerPlugins");
-
-  // Once our headless runner has been started, we need to register the application's plugins
-  // with the runner in order for them to work on the background isolate. `registerPlugins` is
-  // a callback set from AppDelegate.m in the main application. This callback should register
-  // all relevant plugins (excluding those which require UI).
-  registerPlugins(_headlessRunner);
-  [_registrar addMethodCallDelegate:self channel:_callbackChannel];
+    NSLog(@"GeoLocationPlugin - startGeoLocationService");
+    [self setCallbackDispatcherHandle:handle];
+    FlutterCallbackInformation *info = [FlutterCallbackCache lookupCallbackInformation:handle];
+    NSAssert(info != nil, @"failed to find callback");
+    NSString *entrypoint = info.callbackName;
+    NSString *uri = info.callbackLibraryPath;
+    [_headlessRunner runWithEntrypoint:entrypoint libraryURI:uri];
+    NSAssert(registerPlugins != nil, @"failed to set registerPlugins");
+    
+    // Once our headless runner has been started, we need to register the application's plugins
+    // with the runner in order for them to work on the background isolate. `registerPlugins` is
+    // a callback set from AppDelegate.m in the main application. This callback should register
+    // all relevant plugins (excluding those which require UI).
+    registerPlugins(_headlessRunner);
+    [_registrar addMethodCallDelegate:self channel:_callbackChannel];
 }
 
 - (void)registerGeoLocation:(NSArray *)arguments {
-  int64_t callbackHandle = [arguments[0] longLongValue];
-  NSString *identifier = arguments[1];
-  double latitude = [arguments[2] doubleValue];
-  double longitude = [arguments[3] doubleValue];
-  double radius = [arguments[4] doubleValue];
-  int64_t triggerMask = [arguments[5] longLongValue];
-
-  CLCircularRegion *region =
-      [[CLCircularRegion alloc] initWithCenter:CLLocationCoordinate2DMake(latitude, longitude)
-                                        radius:radius
-                                    identifier:identifier];
-  region.notifyOnEntry = ((triggerMask & 0x1) != 0);
-  region.notifyOnExit = ((triggerMask & 0x2) != 0);
-
-  [self setCallbackHandleForRegionId:callbackHandle regionId:identifier];
-  [self->_locationManager startMonitoringForRegion:region];
+    NSLog(@"GeoLocationPlugin - registerGeoLocation");
+    int64_t callbackHandle = [arguments[0] longLongValue];
+    NSString *username = arguments[1];
+    NSString *deviceId = arguments[2];
+    [self setLocationCallbackHandle:callbackHandle];
+    [self setGeoUsername:username];
+    [self setGeoDeviceId:deviceId];
+    
+    [self->_locationManager startMonitoringSignificantLocationChanges];
 }
 
 - (BOOL)removeGeoLocation:(NSArray *)arguments {
-  NSString *identifier = arguments[0];
-  for (CLRegion *region in [self->_locationManager monitoredRegions]) {
-    if ([region.identifier isEqual:identifier]) {
-      [self->_locationManager stopMonitoringForRegion:region];
-      [self removeCallbackHandleForRegionId:identifier];
-      return YES;
-    }
-  }
-  return NO;
+    NSLog(@"GeoLocationPlugin - removeGeoLocation");
+    [self->_locationManager stopMonitoringSignificantLocationChanges];
+    return YES;
 }
 
 - (int64_t)getCallbackDispatcherHandle {
-  id handle = [_persistentState objectForKey:@"callback_dispatcher_handle"];
-  if (handle == nil) {
-    return 0;
-  }
-  return [handle longLongValue];
+    id handle = [_persistentState objectForKey:@"callback_dispatcher_handle"];
+    if (handle == nil) {
+        return 0;
+    }
+    return [handle longLongValue];
 }
 
 - (void)setCallbackDispatcherHandle:(int64_t)handle {
-  [_persistentState setObject:[NSNumber numberWithLongLong:handle]
-                       forKey:@"callback_dispatcher_handle"];
+    [_persistentState setObject:[NSNumber numberWithLongLong:handle]
+                         forKey:@"callback_dispatcher_handle"];
+    [_persistentState synchronize];
 }
 
-- (NSMutableDictionary *)getRegionCallbackMapping {
-  const NSString *key = kCallbackMapping;
-  NSMutableDictionary *callbackDict = [_persistentState dictionaryForKey:key];
-  if (callbackDict == nil) {
-    callbackDict = @{};
-    [_persistentState setObject:callbackDict forKey:key];
-  }
-  return [callbackDict mutableCopy];
+- (int64_t)getLocationCallbackHandle {
+    id handle = [_persistentState objectForKey:@"location_callback_handle"];
+    if (handle == nil) {
+        return 0;
+    }
+    return [handle longLongValue];
 }
 
-- (void)setRegionCallbackMapping:(NSMutableDictionary *)mapping {
-  const NSString *key = kCallbackMapping;
-  NSAssert(mapping != nil, @"mapping cannot be nil");
-  [_persistentState setObject:mapping forKey:key];
+- (void)setLocationCallbackHandle:(int64_t)handle {
+    [_persistentState setObject:[NSNumber numberWithLongLong:handle]
+                         forKey:@"location_callback_handle"];
 }
 
-- (int64_t)getCallbackHandleForRegionId:(NSString *)identifier {
-  NSMutableDictionary *mapping = [self getRegionCallbackMapping];
-  id handle = [mapping objectForKey:identifier];
-  if (handle == nil) {
-    return 0;
-  }
-  return [handle longLongValue];
+- (NSString*)getGeoUsername {
+    id handle = [_persistentState objectForKey:@"geo_location_username"];
+    if (handle == nil) {
+        return nil;
+    }
+    return handle;
 }
 
-- (void)setCallbackHandleForRegionId:(int64_t)handle regionId:(NSString *)identifier {
-  NSMutableDictionary *mapping = [self getRegionCallbackMapping];
-  [mapping setObject:[NSNumber numberWithLongLong:handle] forKey:identifier];
-  [self setRegionCallbackMapping:mapping];
+- (void)setGeoUsername:(NSString*)username {
+    [_persistentState setObject:username
+                         forKey:@"geo_location_username"];
+    [_persistentState synchronize];
 }
 
-- (void)removeCallbackHandleForRegionId:(NSString *)identifier {
-  NSMutableDictionary *mapping = [self getRegionCallbackMapping];
-  [mapping removeObjectForKey:identifier];
-  [self setRegionCallbackMapping:mapping];
+- (NSString*)getGeoDeviceId {
+    id handle = [_persistentState objectForKey:@"geo_location_device_id"];
+    if (handle == nil) {
+        return nil;
+    }
+    return handle;
+}
+
+- (void)setGeoDeviceId:(NSString*)deviceId {
+    [_persistentState setObject:deviceId
+                         forKey:@"geo_location_device_id"];
+    [_persistentState synchronize];
 }
 
 @end
